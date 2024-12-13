@@ -60,6 +60,20 @@ exports.handler = async (event, context) => {
     };
   }
 
+  // Check if body exists before parsing it
+  let parsedBody = {};
+  try {
+    if (body) {
+      parsedBody = JSON.parse(body);
+    }
+  } catch (error) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid JSON format' }),
+      headers: headers,
+    };
+  }
+
   // Get data
   if (httpMethod === 'GET' && queryStringParameters?.action === 'get-data') {
     const data = readXlsFile();
@@ -72,7 +86,7 @@ exports.handler = async (event, context) => {
 
   // Save data
   if (httpMethod === 'POST' && queryStringParameters?.action === 'save-data') {
-    const { data } = JSON.parse(body);
+    const { data } = parsedBody;
     if (Array.isArray(data)) {
       writeXlsFile(data);
       return {
@@ -91,7 +105,7 @@ exports.handler = async (event, context) => {
 
   // Update data
   if (httpMethod === 'POST' && queryStringParameters?.action === 'update-data') {
-    const { rowIndex, newData } = JSON.parse(body);
+    const { rowIndex, newData } = parsedBody;
     let data = readXlsFile();
     if (rowIndex < data.length) {
       data[rowIndex] = { ...data[rowIndex], ...newData };
@@ -112,7 +126,7 @@ exports.handler = async (event, context) => {
 
   // Delete specific row by index
   if (httpMethod === 'POST' && queryStringParameters?.action === 'delete-row') {
-    const { rowIndex } = JSON.parse(body);
+    const { rowIndex } = parsedBody;
     const result = deleteRow(rowIndex);
     if (result.success) {
       return {
