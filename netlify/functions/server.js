@@ -45,12 +45,28 @@ const deleteAllData = () => {
 exports.handler = async (event, context) => {
   const { httpMethod, body, queryStringParameters } = event;
 
+  // Add CORS headers to allow cross-origin requests
+  const headers = {
+    'Access-Control-Allow-Origin': '*',  // Allow all origins (you can restrict this to a specific domain for security)
+    'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',  // Allow specific methods
+    'Access-Control-Allow-Headers': 'Content-Type',  // Allow specific headers
+  };
+
+  // Preflight request handling (OPTIONS method)
+  if (httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,  // No content, successful preflight
+      headers: headers,
+    };
+  }
+
   // Get data
   if (httpMethod === 'GET' && queryStringParameters?.action === 'get-data') {
     const data = readXlsFile();
     return {
       statusCode: 200,
       body: JSON.stringify({ data }),
+      headers: headers,  // Include CORS headers in the response
     };
   }
 
@@ -62,11 +78,13 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Data saved successfully' }),
+        headers: headers,  // Include CORS headers in the response
       };
     } else {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Data should be an array' }),
+        headers: headers,  // Include CORS headers in the response
       };
     }
   }
@@ -81,11 +99,13 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Data updated successfully' }),
+        headers: headers,  // Include CORS headers in the response
       };
     } else {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Row index out of bounds' }),
+        headers: headers,  // Include CORS headers in the response
       };
     }
   }
@@ -98,11 +118,13 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 200,
         body: JSON.stringify({ message: result.message }),
+        headers: headers,  // Include CORS headers in the response
       };
     } else {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: result.message }),
+        headers: headers,  // Include CORS headers in the response
       };
     }
   }
@@ -113,6 +135,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'All data deleted successfully' }),
+      headers: headers,  // Include CORS headers in the response
     };
   }
 
@@ -120,5 +143,6 @@ exports.handler = async (event, context) => {
   return {
     statusCode: 404,
     body: JSON.stringify({ error: 'Not Found' }),
+    headers: headers,  // Include CORS headers in the response
   };
 };
