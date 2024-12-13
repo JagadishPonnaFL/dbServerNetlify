@@ -63,6 +63,7 @@ exports.handler = async (event, context) => {
   // Handle POST request to save data
   if (httpMethod === 'POST' && queryStringParameters?.action === 'save-data') {
     try {
+      // Parse the body as JSON
       const { data } = JSON.parse(body);
 
       // Validate if data is an array
