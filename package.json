@@ -1,0 +1,13 @@
+{
+    "name": "xls-serverless",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+      "dev": "netlify dev",
+      "start": "netlify dev"
+    },
+    "dependencies": {
+      "xlsx": "^0.18.5"
+    }
+  }
+  
