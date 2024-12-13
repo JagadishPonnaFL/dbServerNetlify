@@ -1,6 +1,5 @@
 [build]
   functions = "netlify/functions"  # This is where your functions are located
-  publish = "public"  # This is the directory that will be served for your site (empty for now)
 
 [[redirects]]
   from = "/api/*"
