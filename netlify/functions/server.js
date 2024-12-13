@@ -24,10 +24,28 @@ const writeXlsFile = (data) => {
   xlsx.writeFile(wb, xlsFilePath);
 };
 
+// Function to delete a specific row from the XLS file
+const deleteRow = (index) => {
+  const data = readXlsFile();
+  if (index >= 0 && index < data.length) {
+    data.splice(index, 1);  // Remove the row at the specified index
+    writeXlsFile(data);
+    return { success: true, message: 'Row deleted successfully' };
+  } else {
+    return { success: false, message: 'Row index out of bounds' };
+  }
+};
+
+// Function to clear all data in the XLS file
+const deleteAllData = () => {
+  writeXlsFile([]);  // Writing an empty array clears the sheet
+};
+
 // Export handler function
 exports.handler = async (event, context) => {
   const { httpMethod, body, queryStringParameters } = event;
 
+  // Get data
   if (httpMethod === 'GET' && queryStringParameters?.action === 'get-data') {
     const data = readXlsFile();
     return {
@@ -36,6 +54,7 @@ exports.handler = async (event, context) => {
     };
   }
 
+  // Save data
   if (httpMethod === 'POST' && queryStringParameters?.action === 'save-data') {
     const { data } = JSON.parse(body);
     if (Array.isArray(data)) {
@@ -52,6 +71,7 @@ exports.handler = async (event, context) => {
     }
   }
 
+  // Update data
   if (httpMethod === 'POST' && queryStringParameters?.action === 'update-data') {
     const { rowIndex, newData } = JSON.parse(body);
     let data = readXlsFile();
@@ -70,6 +90,33 @@ exports.handler = async (event, context) => {
     }
   }
 
+  // Delete specific row by index
+  if (httpMethod === 'POST' && queryStringParameters?.action === 'delete-row') {
+    const { rowIndex } = JSON.parse(body);
+    const result = deleteRow(rowIndex);
+    if (result.success) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: result.message }),
+      };
+    } else {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: result.message }),
+      };
+    }
+  }
+
+  // Delete all data in the XLS file
+  if (httpMethod === 'POST' && queryStringParameters?.action === 'delete-all-data') {
+    deleteAllData();
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'All data deleted successfully' }),
+    };
+  }
+
+  // Return 404 if action is not recognized
   return {
     statusCode: 404,
     body: JSON.stringify({ error: 'Not Found' }),
