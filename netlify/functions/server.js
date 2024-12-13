@@ -1,162 +1,159 @@
 const fs = require('fs');
 const path = require('path');
-const xlsx = require('xlsx');
 
-// Path to your XLS file
-const xlsFilePath = path.join(__dirname, '../../data.xls');
+// Path to your local JSON file
+const jsonFilePath = path.join(__dirname, 'data.json');
 
-// Function to read XLS file
-const readXlsFile = () => {
-  if (fs.existsSync(xlsFilePath)) {
-    const workbook = xlsx.readFile(xlsFilePath);
-    const sheet_name_list = workbook.SheetNames;
-    const worksheet = workbook.Sheets[sheet_name_list[0]];
-    return xlsx.utils.sheet_to_json(worksheet);
+// Function to read data from the JSON file
+const readDataFile = () => {
+  if (fs.existsSync(jsonFilePath)) {
+    const rawData = fs.readFileSync(jsonFilePath, 'utf8');
+    return JSON.parse(rawData);
   }
   return [];
 };
 
-// Function to write to XLS file
-const writeXlsFile = (data) => {
-  const ws = xlsx.utils.json_to_sheet(data);
-  const wb = xlsx.utils.book_new();
-  xlsx.utils.book_append_sheet(wb, ws, 'Sheet1');
-  xlsx.writeFile(wb, xlsFilePath);
+// Function to write data to the JSON file
+const writeDataFile = (data) => {
+  const jsonData = JSON.stringify(data, null, 2);  // Pretty print JSON
+  fs.writeFileSync(jsonFilePath, jsonData, 'utf8');
 };
 
-// Function to delete a specific row from the XLS file
-const deleteRow = (index) => {
-  const data = readXlsFile();
-  if (index >= 0 && index < data.length) {
-    data.splice(index, 1);  // Remove the row at the specified index
-    writeXlsFile(data);
-    return { success: true, message: 'Row deleted successfully' };
-  } else {
-    return { success: false, message: 'Row index out of bounds' };
-  }
+// Function to handle CORS headers for every response
+const handleCORS = (headers = {}) => {
+  return {
+    ...headers,
+    'Access-Control-Allow-Origin': '*',  // Allow all origins (for development)
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', // Allowed HTTP methods
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Allowed headers
+  };
 };
 
-// Function to clear all data in the XLS file
-const deleteAllData = () => {
-  writeXlsFile([]);  // Writing an empty array clears the sheet
-};
-
-// Export handler function
+// Function to handle different HTTP requests
 exports.handler = async (event, context) => {
   const { httpMethod, body, queryStringParameters } = event;
 
-  // Add CORS headers to allow cross-origin requests
-  const headers = {
-    'Access-Control-Allow-Origin': '*',  // Allow all origins (you can restrict this to a specific domain for security)
-    'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',  // Allow specific methods
-    'Access-Control-Allow-Headers': 'Content-Type',  // Allow specific headers
-  };
-
-  // Preflight request handling (OPTIONS method)
+  // Handle CORS Pre-flight OPTIONS request
   if (httpMethod === 'OPTIONS') {
     return {
-      statusCode: 204,  // No content, successful preflight
-      headers: headers,
+      statusCode: 204,
+      headers: handleCORS(),
+      body: '',
     };
   }
 
-  // Check if body exists before parsing it
-  let parsedBody = {};
-  try {
-    if (body) {
-      parsedBody = JSON.parse(body);
-    }
-  } catch (error) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid JSON format' }),
-      headers: headers,
-    };
-  }
-
-  // Get data
+  // Handle GET request for fetching data
   if (httpMethod === 'GET' && queryStringParameters?.action === 'get-data') {
-    const data = readXlsFile();
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ data }),
-      headers: headers,  // Include CORS headers in the response
-    };
+    try {
+      const data = readDataFile();
+      return {
+        statusCode: 200,
+        headers: handleCORS(),
+        body: JSON.stringify({ data }),
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        headers: handleCORS(),
+        body: JSON.stringify({ error: 'Failed to retrieve data' }),
+      };
+    }
   }
 
-  // Save data
+  // Handle POST request to save data
   if (httpMethod === 'POST' && queryStringParameters?.action === 'save-data') {
-    const { data } = parsedBody;
-    if (Array.isArray(data)) {
-      writeXlsFile(data);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Data saved successfully' }),
-        headers: headers,  // Include CORS headers in the response
-      };
-    } else {
+    try {
+      const { data } = JSON.parse(body);
+
+      // Validate if data is an array
+      if (Array.isArray(data)) {
+        writeDataFile(data);
+        return {
+          statusCode: 200,
+          headers: handleCORS(),
+          body: JSON.stringify({ message: 'Data saved successfully' }),
+        };
+      } else {
+        return {
+          statusCode: 400,
+          headers: handleCORS(),
+          body: JSON.stringify({ error: 'Data should be an array' }),
+        };
+      }
+    } catch (error) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Data should be an array' }),
-        headers: headers,  // Include CORS headers in the response
+        headers: handleCORS(),
+        body: JSON.stringify({ error: 'Invalid JSON format' }),
       };
     }
   }
 
-  // Update data
+  // Handle POST request to update data
   if (httpMethod === 'POST' && queryStringParameters?.action === 'update-data') {
-    const { rowIndex, newData } = parsedBody;
-    let data = readXlsFile();
-    if (rowIndex < data.length) {
-      data[rowIndex] = { ...data[rowIndex], ...newData };
-      writeXlsFile(data);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Data updated successfully' }),
-        headers: headers,  // Include CORS headers in the response
-      };
-    } else {
+    try {
+      const { rowIndex, newData } = JSON.parse(body);
+      let data = readDataFile();
+
+      // Check if rowIndex is valid
+      if (rowIndex < data.length) {
+        data[rowIndex] = { ...data[rowIndex], ...newData };
+        writeDataFile(data);
+        return {
+          statusCode: 200,
+          headers: handleCORS(),
+          body: JSON.stringify({ message: 'Data updated successfully' }),
+        };
+      } else {
+        return {
+          statusCode: 400,
+          headers: handleCORS(),
+          body: JSON.stringify({ error: 'Row index out of bounds' }),
+        };
+      }
+    } catch (error) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Row index out of bounds' }),
-        headers: headers,  // Include CORS headers in the response
+        headers: handleCORS(),
+        body: JSON.stringify({ error: 'Invalid JSON format' }),
       };
     }
   }
 
-  // Delete specific row by index
-  if (httpMethod === 'POST' && queryStringParameters?.action === 'delete-row') {
-    const { rowIndex } = parsedBody;
-    const result = deleteRow(rowIndex);
-    if (result.success) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: result.message }),
-        headers: headers,  // Include CORS headers in the response
-      };
-    } else {
+  // Handle POST request to delete data
+  if (httpMethod === 'POST' && queryStringParameters?.action === 'delete-data') {
+    try {
+      const { rowIndex } = JSON.parse(body);
+      let data = readDataFile();
+
+      // Check if rowIndex is valid
+      if (rowIndex < data.length) {
+        data.splice(rowIndex, 1);  // Remove the item at the specified index
+        writeDataFile(data);
+        return {
+          statusCode: 200,
+          headers: handleCORS(),
+          body: JSON.stringify({ message: 'Data deleted successfully' }),
+        };
+      } else {
+        return {
+          statusCode: 400,
+          headers: handleCORS(),
+          body: JSON.stringify({ error: 'Row index out of bounds' }),
+        };
+      }
+    } catch (error) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: result.message }),
-        headers: headers,  // Include CORS headers in the response
+        headers: handleCORS(),
+        body: JSON.stringify({ error: 'Invalid JSON format' }),
       };
     }
   }
 
-  // Delete all data in the XLS file
-  if (httpMethod === 'POST' && queryStringParameters?.action === 'delete-all-data') {
-    deleteAllData();
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'All data deleted successfully' }),
-      headers: headers,  // Include CORS headers in the response
-    };
-  }
-
-  // Return 404 if action is not recognized
   return {
     statusCode: 404,
+    headers: handleCORS(),
     body: JSON.stringify({ error: 'Not Found' }),
-    headers: headers,  // Include CORS headers in the response
   };
 };
